@@ -11,5 +11,9 @@ CHIP Or {
     OUT out;
 
     PARTS:
-    //// Replace this comment with your code.
+    /* a or b == not not (a or b) = not (not a and not b)*/
+    Not(in=a, out=Not1);
+    Not(in=b, out=Not2);
+    And(a=Not1, b=Not2, out=And1);
+    Not(in=And1, out=out);
 }
