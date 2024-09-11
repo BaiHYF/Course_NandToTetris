@@ -14,9 +14,43 @@
  *                            [0,  0,  0,  0,  0,  0,  0, in] if sel = 111
  */
 CHIP DMux8Way {
-    IN in, sel[3];
+    IN in, sel[3];  // [sel[2], sel[1], sel[0]]
     OUT a, b, c, d, e, f, g, h;
 
     PARTS:
-    //// Replace this comment with your code.
+    Not(in=sel[0], out=not0);
+    Not(in=sel[1], out=not1);
+    Not(in=sel[2], out=not2);
+    /* a = in & !sel[2] & !sel[1] & !sel[0] */
+    And(a=in, b=not2, out=and1);
+    And(a=and1, b=not1, out=and2);
+    And(a=and2, b=not0, out=a);
+    /* b = in & !sel[2] & !sel[1] & sel[0] */
+    And(a=in, b=not2, out=and3);
+    And(a=and3, b=not1, out=and4);
+    And(a=and4, b=sel[0], out=b);
+    /* c = in & !sel[2] & sel[1] & !sel[0] */
+    And(a=in, b=not2, out=and5);
+    And(a=and5, b=sel[1], out=and6);
+    And(a=and6, b=not0, out=c);
+    /* d = in & !sel[2] & sel[1] & sel[0] */
+    And(a=in, b=not2, out=and7);
+    And(a=and7, b=sel[1], out=and8);
+    And(a=and8, b=sel[0], out=d);
+    /* e = in & sel[2] & !sel[1] & !sel[0] */
+    And(a=in, b=sel[2], out=and9);
+    And(a=and9, b=not1, out=and10);
+    And(a=and10, b=not0, out=e);
+    /* f = in & sel[2] & !sel[1] & sel[0] */
+    And(a=in, b=sel[2], out=and11);
+    And(a=and11, b=not1, out=and12);
+    And(a=and12, b=sel[0], out=f);
+    /* g = in & sel[2] & sel[1] & !sel[0] */
+    And(a=in, b=sel[2], out=and13);
+    And(a=and13, b=sel[1], out=and14);
+    And(a=and14, b=not0, out=g);
+    /* h = in & sel[2] & sel[1] & sel[0] */
+    And(a=in, b=sel[2], out=and15);
+    And(a=and15, b=sel[1], out=and16);
+    And(a=and16, b=sel[0], out=h);
 }
