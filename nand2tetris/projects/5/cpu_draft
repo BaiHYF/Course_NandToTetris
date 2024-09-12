@@ -1,0 +1,18 @@
+register: A (address), D (data), M (RAM[A])
+
+	/*
+        Control Signals:
+            cAsrc -- 0: Ain from inst , 1: Ain from ALUresult -- inst[15]opcode
+            cALUsrc -- 0: ALUin2 from inM, 1: ALUin2 from inst (immediate) --- inst[12]comp
+            cAwr -- 0: don't write to A, 1: write to A --- inst[5]dest
+            cDwr -- 0: don't write to D, 1: write to D --- inst[4]dest
+            cALUop -- [6bits] --- inst[6..11]comp
+            cMwr -- 0: don't write to M, 1: write to M --- inst[3]dest
+            cPCload --- control by inst[0..2]jjj, zr, ng
+                Use Logic Gates: J(j1, j2, j3, zr, ng) = 1 if `condition` is true else 0
+                PC impl：
+                    if (reset) PC<-0
+                    else 
+                        if J(j1, j2, j3, zr, ng) = 1 PC<-A
+                        else PC++
+    */

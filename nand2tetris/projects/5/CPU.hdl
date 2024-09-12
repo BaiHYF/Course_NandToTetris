@@ -31,6 +31,65 @@ CHIP CPU {
         addressM[15],    // Address in data memory (of M)
         pc[15];          // address of next instruction
 
+    // BUILTIN ARegister;
+            // DRegister,
+            // ALU,
+            // Add16,
+            // DMux8Way,
+            // Mux16,
+            // PC;
+            
     PARTS:
-	//// Replace this comment with your code.
+    And16(  a=instruction, b=true, out[15]=inst15, out[12]=inst12, out[11]=inst11,
+            out[10]=inst10, out[9]=inst9, out[8]=inst8, out[7]=inst7, out[6]=inst6, 
+            out[5]=inst5, out[4]=inst4, out[3]=inst3, out[0..2]=jump
+        );
+
+    // Reg A source
+    Mux16(a=instruction, b=ALUout, sel=inst15, out=Asrc);
+    // Reg A
+    Not(in=inst15, out=inst15Not);
+    Or(a=inst15Not, b=inst5, out=Awr);
+    ARegister(in=Asrc, load=Awr, out=Aout);
+    // ALUsrc
+    Mux16(a=Aout, b=inM, sel=instruction[12], out=ALUsrc2);
+    // Reg D
+    DRegister(in=ALUout, load=instruction[4], out=ALUsrc1);
+    // ALU
+    ALU(x=ALUsrc1, y=ALUsrc2, zx=instruction[11], nx=instruction[10], 
+        zy=instruction[9], ny=instruction[8], f=instruction[7], 
+        no=instruction[6], out=ALUout, zr=zr, ng=ng
+    );
+    // PC
+    /*
+        pcLoad= F(inst2, inst1, inst0, zr, ng) = 1 if `condition` is true else 0
+    */
+    Not(in=zr, out=zNot);
+    Not(in=ng, out=nNot);
+    Or(a=zr, b=ng, out=zOrn);
+    
+    DMux8Way(in=true, sel=jump, a=s0, b=s1, c=s2, d=s3, e=s4, f=s5, g=s6, h=s7);
+    
+    And(a=s1, b=zNot, out=t0);
+    And(a=t0, b=nNot, out=l1);  // load case1
+    And(a=s2, b=zr, out=l2);    // load case2
+    And(a=s3, b=nNot, out=l3);  // load case3
+    And(a=s4, b=ng, out=l4);    // load case4
+    And(a=s5, b=zNot, out=l5);  // load case5 
+    And(a=s6, b=zOrn, out=l6);  // load case6
+    And(a=s7, b=true, out=l7);  // load case7
+    
+    Or8Way( in[0]=false, in[1]=l1, in[2]=l2, in[3]=l3, 
+            in[4]=l4, in[5]=l5, in[6]=l6, in[7]=l7,
+            out=pcLoad0
+        );
+    And(a=pcLoad0, b=inst15, out=pcLoad);
+    
+    PC(in=Aout, inc=true, load=pcLoad, reset=reset, out=pcOut);
+    
+    And16(a=ALUout, b=true, out=outM);
+    And(a=inst3, b=inst15, out=writeM);
+    And16(a=Aout, b=true, out[0..14]=addressM);
+    And16(a=pcOut, b=true, out[0..14]=pc);
+    
 }
