@@ -14,5 +14,18 @@ CHIP PC {
     OUT out[16];
     
     PARTS:
-    //// Replace this comment with your code.
+    // change = inc | load | reset, this bit is 0 only when out(t+1)=out(t)
+    Or(a=inc, b=load, out=t0);
+    Or(a=t0, b=reset, out=change);
+
+    Inc16(in=out0, out=inc0);
+
+    // priority: reset > load > inc    
+    Mux16(a=in, b=inc0, sel=inc, out=t1);
+    Mux16(a=t1, b=in, sel=load, out=t2);
+    Mux16(a=t2, b=false, sel=reset, out=regIn);
+
+    Register(in=regIn, load=change, out=out0); 
+    
+    And16(a=out0, b=true, out=out);
 }
