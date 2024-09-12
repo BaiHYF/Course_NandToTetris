@@ -41,5 +41,33 @@ CHIP ALU {
         ng;      // if (out < 0)  equals 1, else 0
 
     PARTS:
-    //// Replace this comment with your code.
+    // if zx == 1, sets x = 0,
+    // then if nx == 1, sets x = !x
+    Mux16(a=x, b=false, sel=zx, out=xZero);
+    Not16(in=xZero, out=xNot);
+    Mux16(a=xZero, b=xNot, sel=nx, out=xSet);
+    
+    Mux16(a=y, b=false, sel=zy, out=yZero);
+    Not16(in=yZero, out=yNot);
+    Mux16(a=yZero, b=yNot, sel=ny, out=ySet);
+
+    Add16(a=xSet, b=ySet, out=xyAdd);
+    And16(a=xSet, b=ySet, out=xyAnd);
+    Mux16(a=xyAnd, b=xyAdd, sel=f, out=out1);
+    
+    // if no==1, sets out = !out
+    Not16(in=out1, out=out1Not);
+    Mux16(a=out1, b=out1Not, sel=no, out=out2);
+    
+    // Q: How to check if out==0?
+    // We inspect sub1=out-1, the sign of `out` and `sub1` is distinct if and only if out==0 
+    // Using only adder, out-1 equals to out+(1'complement), which is out+([16:1])
+    Add16(a=out2, b[0..15]=true, out[15]=sub1sign, out[0..14]=sub1val);
+    Add16(a=out2, b[0..15]=false, out[15]=out2sign, out[0..14]=out2val);
+    Xor(a=sub1sign, b=out2sign, out=zr);
+    
+    // Q: How to check if out<0?
+    // out2sign==1 and 
+    And(a=out2sign, b=true, out=ng);
+    And16(a=out2, b=true, out=out);
 }
