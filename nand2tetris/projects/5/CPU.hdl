@@ -30,14 +30,6 @@ CHIP CPU {
         writeM,          // Write to M? 
         addressM[15],    // Address in data memory (of M)
         pc[15];          // address of next instruction
-
-    // BUILTIN ARegister;
-            // DRegister,
-            // ALU,
-            // Add16,
-            // DMux8Way,
-            // Mux16,
-            // PC;
             
     PARTS:
     And16(  a=instruction, b=true, out[15]=inst15, out[12]=inst12, out[11]=inst11,
@@ -54,7 +46,8 @@ CHIP CPU {
     // ALUsrc
     Mux16(a=Aout, b=inM, sel=instruction[12], out=ALUsrc2);
     // Reg D
-    DRegister(in=ALUout, load=instruction[4], out=ALUsrc1);
+    And(a=instruction[15], b=instruction[4], out=wrD);
+    DRegister(in=ALUout, load=wrD, out=ALUsrc1);
     // ALU
     ALU(x=ALUsrc1, y=ALUsrc2, zx=instruction[11], nx=instruction[10], 
         zy=instruction[9], ny=instruction[8], f=instruction[7], 
