@@ -25,5 +25,33 @@ CHIP Memory {
     OUT out[16];
 
     PARTS:
-	//// Replace this comment with your code.
+    // loadRAM = 1 if load==1 and address<0x4000 (16K)
+    // Q: how to check is address<0x4000?
+    // A: addr[14]==0
+    Not(in=address[14], out=sRAM);  // select RAM
+    And(a=sRAM, b=load, out=loadRAM);
+    
+    // loadScreen = 1 if load==1 and address>=0x4000 and address<0x6000 (16K+8K)
+    // Q: how to check is address>=0x4000 and address<0x6000?
+    // A: addr[14]==1 and addr[13]==0
+    Not(in=address[13], out=t1);
+    And(a=address[14], b=t1, out=sScreen); // select Screen
+    And(a=load, b=sScreen, out=loadScreen);
+
+    // RAM16K 
+    RAM16K(in=in, load=loadRAM, address=address[0..13], out=outRAM);
+    
+    // Screen 8K
+    Screen(in=in, load=loadScreen, address=address[0..12], out=outScreen);
+    
+    // loadKeyboard = 1 if load==1 and address==0x6000
+    // using ALU to check address==0x6000
+    And(a=address[14], b=address[13], out=sKeyboard);
+
+    // Keyboard
+    Keyboard(out=outKeyboard);
+    
+    Mux16(a=false, b=outRAM, sel=sRAM, out=out1);
+    Mux16(a=out1, b=outScreen, sel=sScreen, out=out2);
+    Mux16(a=out2, b=outKeyboard, sel=sKeyboard, out=out);
 }
