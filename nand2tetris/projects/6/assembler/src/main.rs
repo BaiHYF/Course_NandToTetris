@@ -1,12 +1,12 @@
-use std::env;
-use std::fs::{self, File};
-use std::io::{self, Write};
+use std::fs::File;
+use std::io::Write;
 use std::collections::HashMap;
+use std::sync::Mutex;
 
 #[macro_use]
 extern crate lazy_static;
 lazy_static! {
-    static ref SYMBOL_TABLE: HashMap<String, String> = {
+    static ref SYMBOL_TABLE: Mutex<HashMap<String, String>> = {
         let mut m = HashMap::new();
         m.insert(String::from("R0"), String::from("0"));
         m.insert(String::from("R1"), String::from("1"));
@@ -26,20 +26,20 @@ lazy_static! {
         m.insert(String::from("R15"), String::from("15"));
         m.insert(String::from("SCREEN"), String::from("16384"));
         m.insert(String::from("KBD"), String::from("24576"));
-        
-        m
+        m.insert(String::from("SP"), String::from("0"));
+        m.insert(String::from("LCL"), String::from("1"));
+        m.insert(String::from("ARG"), String::from("2"));
+        m.insert(String::from("THIS"), String::from("3"));
+        m.insert(String::from("THAT"), String::from("4"));
+        Mutex::new(m)
     };
 }
 
+static mut VAR_ADDR: i32 = 16;
 
+// static mut SYMBOL_TABLE: HashMap<String, String> = HashMap::new();
 
 fn main() {
-    // 1. gets input file, stores it in a String
-    // 2. splits the String by lines into a vector of Strings
-    // 3. let symbol parser to handle
-    // 4. let code generater to handle
-    // 5. output the result to `out.hack`
-
     // 从控制台第一个参数读取 input 文件名
     let args: Vec<String> = std::env::args().collect();
     if args.len() < 2 {
@@ -47,7 +47,8 @@ fn main() {
         std::process::exit(1);
     }
     let input_file = &args[1];
-    let name: Vec<&str> = args[1].split(".").collect();
+    let name: Vec<&str> = input_file.split(".").collect();
+    println!("DEBUG: {}.{}", name[0], name[1]);
     let outname = name[0];
 
     // Read the input file, stores it in a String
@@ -55,15 +56,26 @@ fn main() {
     let mut lines: Vec<&str> = input_file.lines().collect();
     // 丢弃空行与 "//" 开头的注释行
     lines.retain(|line| !line.is_empty() && !line.starts_with("//"));
-
+    
     // create a new file named "new.asm"
-    let output_file = outname.to_string() + ".asm";
+    let output_file = format!("{}{}", outname.to_string(), ".hack");
     println!("DEBUG: {}", output_file);
     let mut file = File::create(output_file).expect("Failed to create output file");
 
-    let mut val_id = 16;
+    let mut line_num = 0;
     for line in lines {
-        writeln!(file, "{}", code_generate(line)).expect("Failed to write to output file");
+        let line = line.trim();
+        if line.starts_with("//") {
+            // Handle label
+            continue;
+        }
+        println!("parsing: {}", line);
+        let line = symbol_parser(line, line_num);
+        line_num += 1;
+        if line == "" {
+            continue;
+        }
+        writeln!(file, "{}", code_generate(&line)).expect("Failed to write to output file");
     }
 }
 
@@ -102,18 +114,16 @@ fn a_parser(inst: &str) -> String {
 /// ```
 fn c_parser(inst: &str) -> String {
     // parse `dest`, `comp` and `jump`
-    let (mut dest, mut comp, mut jump) = ("", "", "");
-
     let split: Vec<&str> = inst.split(";").collect();
-    jump = if split.len() > 1 { split[1].trim() } else { "" };
+    let jump = if split.len() > 1 { split[1].trim() } else { "" };
 
     let split: Vec<&str> = split[0].split("=").collect();
-    comp = if split.len() > 1 {
+    let comp = if split.len() > 1 {
         split[1].trim()
     } else {
         split[0].trim()
     };
-    dest = if split.len() > 1 { split[0].trim() } else { "" };
+    let dest = if split.len() > 1 { split[0].trim() } else { "" };
 
     // println!("DEBUG: inst: {}, dest: {}, comp: {}, jump: {}", inst, dest, comp, jump);
 
@@ -174,23 +184,41 @@ fn c_parser(inst: &str) -> String {
     format!("111{}{}{}", acccccc, ddd, jjj)
 }
 
-fn symbol_parser(inst: &str, mut val_addr: i32) -> (String, i32) {
+fn symbol_parser(inst: &str, line_num: i32) -> String {
+    if inst.starts_with("(") {
+        let label = inst.trim_matches(|c| c == '(' || c == ')').to_string();
+        SYMBOL_TABLE.lock().unwrap().insert(label, line_num.to_string());
+        return "".to_string();  // return empty string
+    }
+
     // if not an A instruction, return what is inputed
     if !inst.starts_with("@") {
-        return (inst.to_string(), val_addr);
+        return inst.to_string();
     } else {
         let num = &inst[1..];
         // if it is a number, return it
         if num.parse::<i32>().is_ok() {
-            return (inst.to_string(), val_addr);
+            return inst.to_string();
         } else {
             // if it is a symbol, return the value of the symbol
             let sym = num.trim();
+            
+            let val = if SYMBOL_TABLE.lock().unwrap().contains_key(sym) {
+                SYMBOL_TABLE.lock().unwrap().get(sym).unwrap().to_string()
+            } else {
+                unsafe {
+                    println!("DEBUG: {}:{}", sym, VAR_ADDR);
+                    SYMBOL_TABLE.lock().unwrap().insert(sym.to_string(), VAR_ADDR.to_string());
+                    VAR_ADDR += 1;
+                    (VAR_ADDR - 1).to_string()
+                }
+            };
+            return format!("@{}", val);
         }
     }
-    !unimplemented!("");
 }
 
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -205,5 +233,14 @@ mod tests {
         assert_eq!(c_parser("A=-1"), "1110111010100000");
         assert_eq!(c_parser("D=D+1 ; JLE"), "1110011111010110");
         assert_eq!(c_parser("0;JMP"), "1110101010000111");
+    }
+
+    #[test]
+    fn test_symbol_parser() {
+        assert_eq!(symbol_parser("@R2", 0), "@2");
+        assert_eq!(symbol_parser("@KBD", 0), "@24576");
+        assert_eq!(symbol_parser("@3", 3), "@3");
+        assert_eq!(symbol_parser("D=1", 4), "D=1");
+        assert_eq!(symbol_parser("(LOOP)", 4), "");
     }
 }
