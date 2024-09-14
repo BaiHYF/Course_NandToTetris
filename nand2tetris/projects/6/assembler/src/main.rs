@@ -1,6 +1,37 @@
 use std::env;
 use std::fs::{self, File};
 use std::io::{self, Write};
+use std::collections::HashMap;
+
+#[macro_use]
+extern crate lazy_static;
+lazy_static! {
+    static ref SYMBOL_TABLE: HashMap<String, String> = {
+        let mut m = HashMap::new();
+        m.insert(String::from("R0"), String::from("0"));
+        m.insert(String::from("R1"), String::from("1"));
+        m.insert(String::from("R2"), String::from("2"));
+        m.insert(String::from("R3"), String::from("3"));
+        m.insert(String::from("R4"), String::from("4"));
+        m.insert(String::from("R5"), String::from("5"));
+        m.insert(String::from("R6"), String::from("6"));
+        m.insert(String::from("R7"), String::from("7"));
+        m.insert(String::from("R8"), String::from("8"));
+        m.insert(String::from("R9"), String::from("9"));
+        m.insert(String::from("R10"), String::from("10"));
+        m.insert(String::from("R11"), String::from("11"));
+        m.insert(String::from("R12"), String::from("12"));
+        m.insert(String::from("R13"), String::from("13"));
+        m.insert(String::from("R14"), String::from("14"));
+        m.insert(String::from("R15"), String::from("15"));
+        m.insert(String::from("SCREEN"), String::from("16384"));
+        m.insert(String::from("KBD"), String::from("24576"));
+        
+        m
+    };
+}
+
+
 
 fn main() {
     // 1. gets input file, stores it in a String
@@ -29,6 +60,8 @@ fn main() {
     let output_file = outname.to_string() + ".asm";
     println!("DEBUG: {}", output_file);
     let mut file = File::create(output_file).expect("Failed to create output file");
+
+    let mut val_id = 16;
     for line in lines {
         writeln!(file, "{}", code_generate(line)).expect("Failed to write to output file");
     }
@@ -141,10 +174,19 @@ fn c_parser(inst: &str) -> String {
     format!("111{}{}{}", acccccc, ddd, jjj)
 }
 
-fn symbol_parser(inst: &str) -> String {
+fn symbol_parser(inst: &str, mut val_addr: i32) -> (String, i32) {
     // if not an A instruction, return what is inputed
     if !inst.starts_with("@") {
-        return inst.to_string();
+        return (inst.to_string(), val_addr);
+    } else {
+        let num = &inst[1..];
+        // if it is a number, return it
+        if num.parse::<i32>().is_ok() {
+            return (inst.to_string(), val_addr);
+        } else {
+            // if it is a symbol, return the value of the symbol
+            let sym = num.trim();
+        }
     }
     !unimplemented!("");
 }
