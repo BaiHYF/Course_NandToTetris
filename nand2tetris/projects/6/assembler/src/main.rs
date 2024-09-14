@@ -1,4 +1,6 @@
-use std::fmt::Debug;
+use std::env;
+use std::fs::{self, File};
+use std::io::{self, Write};
 
 fn main() {
     // 1. gets input file, stores it in a String
@@ -9,30 +11,44 @@ fn main() {
 
     // 从控制台第一个参数读取 input 文件名
     let args: Vec<String> = std::env::args().collect();
+    if args.len() < 2 {
+        eprintln!("Usage: {} <input_file>", args[0]);
+        std::process::exit(1);
+    }
     let input_file = &args[1];
-    
+    let name: Vec<&str> = args[1].split(".").collect();
+    let outname = name[0];
+
     // Read the input file, stores it in a String
     let input_file = std::fs::read_to_string(input_file).expect("Failed to read input file");
-    let lines: Vec<&str> = input_file.lines().collect();
+    let mut lines: Vec<&str> = input_file.lines().collect();
     // 丢弃空行与 "//" 开头的注释行
-    let lines: Vec<&str> = lines.into_iter().filter(|line| !line.is_empty() && !line.starts_with("//")).collect();
-    let mut lines: Vec<&str>;
-}
+    lines.retain(|line| !line.is_empty() && !line.starts_with("//"));
 
+    // create a new file named "new.asm"
+    let output_file = outname.to_string() + ".asm";
+    println!("DEBUG: {}", output_file);
+    let mut file = File::create(output_file).expect("Failed to create output file");
+    for line in lines {
+        writeln!(file, "{}", code_generate(line)).expect("Failed to write to output file");
+    }
+}
 
 /// Parse a line of instruction and return a binary code.
 fn code_generate(inst: &str) -> String {
-    if inst.starts_with("@") { // Handle A instrustion
+    if inst.starts_with("@") {
+        // Handle A instrustion
         return a_parser(inst);
-    } else { // Handle C instrustion
+    } else {
+        // Handle C instrustion
         return c_parser(inst);
     }
 }
 
 /// Parse an A instruction and return its binary code.
-/// 
+///
 /// "@xxx" -> "0"+"xxx in binary"
-/// 
+///
 /// ```
 /// assert_eq!(a_parser("@17"), "0000000000010001");
 /// assert_eq!(a_parser("@14"), "0000000000001110");
@@ -45,7 +61,7 @@ fn a_parser(inst: &str) -> String {
 
 /// Parse a C instruction and return its binary code.
 /// "dest=comp;jump"
-/// 
+///
 /// ```
 /// assert_eq!(c_parser("A=-1"), "1110111010100000");
 /// assert_eq!(c_parser("D=D+1 ; JLE"), "1110011111010110");
@@ -59,10 +75,14 @@ fn c_parser(inst: &str) -> String {
     jump = if split.len() > 1 { split[1].trim() } else { "" };
 
     let split: Vec<&str> = split[0].split("=").collect();
-    comp = if split.len() > 1 { split[1].trim() } else { split[0].trim() };
+    comp = if split.len() > 1 {
+        split[1].trim()
+    } else {
+        split[0].trim()
+    };
     dest = if split.len() > 1 { split[0].trim() } else { "" };
 
-    println!("DEBUG: inst: {}, dest: {}, comp: {}, jump: {}", inst, dest, comp, jump);
+    // println!("DEBUG: inst: {}, dest: {}, comp: {}, jump: {}", inst, dest, comp, jump);
 
     let jjj = match jump {
         "JGT" => "001",
@@ -72,7 +92,7 @@ fn c_parser(inst: &str) -> String {
         "JNE" => "101",
         "JLE" => "110",
         "JMP" => "111",
-        _ => "000" // no jump
+        _ => "000", // no jump
     };
 
     let acccccc = match comp {
@@ -104,7 +124,7 @@ fn c_parser(inst: &str) -> String {
         "M-D" => "1000111",
         "D&M" => "1000000",
         "D|M" => "1010101",
-        _ => "0000000"
+        _ => "0000000",
     };
 
     let ddd = match dest {
@@ -115,21 +135,19 @@ fn c_parser(inst: &str) -> String {
         "AM" => "101",
         "AD" => "110",
         "ADM" => "111",
-        _ => "000" // the value is not stored
+        _ => "000", // the value is not stored
     };
-    
+
     format!("111{}{}{}", acccccc, ddd, jjj)
 }
 
 fn symbol_parser(inst: &str) -> String {
     // if not an A instruction, return what is inputed
     if !inst.starts_with("@") {
-       return inst.to_string();
-    } 
+        return inst.to_string();
+    }
     !unimplemented!("");
 }
-
-
 
 mod tests {
     use super::*;
