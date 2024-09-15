@@ -1,6 +1,6 @@
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::Write;
-use std::collections::HashMap;
 use std::sync::Mutex;
 
 #[macro_use]
@@ -48,7 +48,7 @@ fn main() {
     }
     let input_file = &args[1];
     let name: Vec<&str> = input_file.split(".").collect();
-    println!("DEBUG: {}.{}", name[0], name[1]);
+    // println!("DEBUG: {}.{}", name[0], name[1]);
     let outname = name[0];
 
     // Read the input file, stores it in a String
@@ -56,13 +56,28 @@ fn main() {
     let mut lines: Vec<&str> = input_file.lines().collect();
     // 丢弃空行与 "//" 开头的注释行
     lines.retain(|line| !line.is_empty() && !line.starts_with("//"));
-    
+
     // create a new file named "new.asm"
     let output_file = format!("{}{}", outname.to_string(), ".hack");
-    println!("DEBUG: {}", output_file);
+    // println!("DEBUG: {}", output_file);
     let mut file = File::create(output_file).expect("Failed to create output file");
 
     let mut line_num = 0;
+
+    // parse label
+    for line in lines.clone() {
+        let line = line.trim();
+        if line.starts_with("//") || line == "" {
+            continue;
+        }
+        if line.starts_with("(") {
+            label_paser(line, line_num);
+            continue;
+        }
+        line_num += 1;
+        // println!("parsing: {}", line);
+    }
+
     for line in lines {
         let line = line.trim();
         if line.starts_with("//") {
@@ -70,8 +85,7 @@ fn main() {
             continue;
         }
         println!("parsing: {}", line);
-        let line = symbol_parser(line, line_num);
-        line_num += 1;
+        let line = symbol_parser(line);
         if line == "" {
             continue;
         }
@@ -173,7 +187,7 @@ fn c_parser(inst: &str) -> String {
     let ddd = match dest {
         "M" => "001",
         "D" => "010",
-        "DM" => "011",
+        "MD" => "011",
         "A" => "100",
         "AM" => "101",
         "AD" => "110",
@@ -184,11 +198,22 @@ fn c_parser(inst: &str) -> String {
     format!("111{}{}{}", acccccc, ddd, jjj)
 }
 
-fn symbol_parser(inst: &str, line_num: i32) -> String {
+fn label_paser(inst: &str, line_num: i32) {
     if inst.starts_with("(") {
         let label = inst.trim_matches(|c| c == '(' || c == ')').to_string();
-        SYMBOL_TABLE.lock().unwrap().insert(label, line_num.to_string());
-        return "".to_string();  // return empty string
+        SYMBOL_TABLE
+            .lock()
+            .unwrap()
+            .insert(label.clone(), line_num.to_string());
+        println!("LP: {} -> {}", label, line_num);
+    }
+}
+
+fn symbol_parser(inst: &str) -> String {
+    if inst.starts_with("(") {
+        // let label = inst.trim_matches(|c| c == '(' || c == ')').to_string();
+        // SYMBOL_TABLE.lock().unwrap().insert(label, line_num.to_string());
+        return "".to_string(); // return empty string
     }
 
     // if not an A instruction, return what is inputed
@@ -202,13 +227,16 @@ fn symbol_parser(inst: &str, line_num: i32) -> String {
         } else {
             // if it is a symbol, return the value of the symbol
             let sym = num.trim();
-            
+
             let val = if SYMBOL_TABLE.lock().unwrap().contains_key(sym) {
                 SYMBOL_TABLE.lock().unwrap().get(sym).unwrap().to_string()
             } else {
                 unsafe {
                     println!("DEBUG: {}:{}", sym, VAR_ADDR);
-                    SYMBOL_TABLE.lock().unwrap().insert(sym.to_string(), VAR_ADDR.to_string());
+                    SYMBOL_TABLE
+                        .lock()
+                        .unwrap()
+                        .insert(sym.to_string(), VAR_ADDR.to_string());
                     VAR_ADDR += 1;
                     (VAR_ADDR - 1).to_string()
                 }
@@ -237,10 +265,9 @@ mod tests {
 
     #[test]
     fn test_symbol_parser() {
-        assert_eq!(symbol_parser("@R2", 0), "@2");
-        assert_eq!(symbol_parser("@KBD", 0), "@24576");
-        assert_eq!(symbol_parser("@3", 3), "@3");
-        assert_eq!(symbol_parser("D=1", 4), "D=1");
-        assert_eq!(symbol_parser("(LOOP)", 4), "");
+        assert_eq!(symbol_parser("@R2"), "@2");
+        assert_eq!(symbol_parser("@KBD"), "@24576");
+        assert_eq!(symbol_parser("@3"), "@3");
+        assert_eq!(symbol_parser("D=1"), "D=1");
     }
 }
